@@ -1,3 +1,4 @@
+
 package com.garbagemule.MobArena;
 
 import java.util.*;
@@ -588,6 +589,7 @@ public class ArenaImpl implements Arena
 
         movePlayerToLobby(p);
         takeFee(p);
+        p.setGameMode(GameMode.SURVIVAL);
         storePlayerData(p, loc);
         removePotionEffects(p);
         MAUtils.sitPets(p);
@@ -597,19 +599,15 @@ public class ArenaImpl implements Arena
             p.setLevel(0);
             p.setExp(0.0f);
         }
-        p.setGameMode(GameMode.SURVIVAL);
         
         arenaPlayerMap.put(p, new ArenaPlayer(p, this, plugin));
-
-        // Start the start-delay-timer if applicable
+        
         if (!autoStartTimer.isRunning()) {
             startDelayTimer.start();
         }
         
-        // Notify player of joining
         Messenger.tell(p, Msg.JOIN_PLAYER_JOINED);
         
-        // Notify player of time left
         if (startDelayTimer.isRunning()) {
             Messenger.tell(p, Msg.ARENA_START_DELAY, "" + startDelayTimer.getRemaining() / 20l);
         } else if (autoStartTimer.isRunning()) {
@@ -622,12 +620,6 @@ public class ArenaImpl implements Arena
     @Override
     public void playerReady(Player p)
     {
-        ArenaPlayerReadyEvent event = new ArenaPlayerReadyEvent(p, this);
-        plugin.getServer().getPluginManager().callEvent(event);
-        if (event.isCancelled()) {
-            return;
-        }
-
         readyPlayers.add(p);
         
         int minPlayers = getMinPlayers();
@@ -643,14 +635,13 @@ public class ArenaImpl implements Arena
     @Override
     public boolean playerLeave(Player p)
     {
-        // Fire the event and check if it's been cancelled.
+        
         ArenaPlayerLeaveEvent event = new ArenaPlayerLeaveEvent(p, this);
         plugin.getServer().getPluginManager().callEvent(event);
         if (event.isCancelled()) {
             return false;
         }
 
-        // Clear inventory if player is an arena player, and unmount
         if (arenaPlayers.contains(p)) {
             unmount(p);
             clearInv(p);
@@ -670,9 +661,8 @@ public class ArenaImpl implements Arena
                 limitManager.playerLeftClass(ap.getArenaClass(), ap.getPlayer());
             }
 
-            // Last lobby player leaving? Stop the timer
             if (lobbyPlayers.size() == 1) {
-                startDelayTimer.stop();
+                autoStartTimer.stop();
             }
         }
         
@@ -686,15 +676,14 @@ public class ArenaImpl implements Arena
     @Override
     public void playerDeath(Player p)
     {
-        // Check if we're the last player standing
+        
         boolean last = arenaPlayers.size() == 1;
         if (last) lastStanding = p;
 
-        // Fire the event
+
         ArenaPlayerDeathEvent event = new ArenaPlayerDeathEvent(p, this, last);
         plugin.getServer().getPluginManager().callEvent(event);
 
-        // Clear the player's inventory, and unmount
         if (arenaPlayers.remove(p)) {
             unmount(p);
             clearInv(p);
@@ -847,11 +836,6 @@ public class ArenaImpl implements Arena
 
             // Spawn the horse, set its variant, tame it, etc.
             Horse horse = (Horse) world.spawnEntity(p.getLocation(), EntityType.HORSE);
-            if (MobArena.random.nextInt(20) == 0) {
-                horse.setBaby();
-            } else {
-                horse.setAdult();
-            }
             horse.setVariant(variant);
             horse.setTamed(true);
             horse.setOwner(p);
@@ -1041,8 +1025,7 @@ public class ArenaImpl implements Arena
         PlayerData mp = playerData.remove(p);
         
         // Health must be handled in a certain way because of Heroes
-        // Math.min to guard for ItemLoreStats weirdness
-        setHealth(p, Math.min(p.getMaxHealth(), mp.health()));
+        setHealth(p, mp.health());
         
         // Put out fire.
         Delays.douse(plugin, p, 3);
@@ -1561,4 +1544,4 @@ public class ArenaImpl implements Arena
     public String toString() {
         return ((enabled && region.isSetup()) ? ChatColor.GREEN : ChatColor.GRAY) + configName();
     }
-}
+}s
